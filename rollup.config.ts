@@ -18,7 +18,7 @@ export default {
     {
       file: 'dist/index.umd.js', // UMD 格式
       format: 'umd',
-      name: 'YourLibraryName' // 全局变量名
+      name: 'ZipSlim' // 全局变量名
     }
   ],
   plugins: [
