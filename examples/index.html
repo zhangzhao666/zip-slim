@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zip-slim 压缩解压示例</title>
+  </head>
+  <body>
+    <input type="file" multiple id="zipInput" />
+    <button id="zipInputBtn">压缩</button>
+    <div></div>
+    <input type="file" id="unzipInput" />
+    <button id="unzipInputBtn">解压</button>
+    <script type="importmap">
+      {
+        "imports": {
+          "zip-slim": "./zip-slim.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import { zip, unZip, zstd, fflate } from "zip-slim";
+
+      const zipInput = document.getElementById("zipInput");
+      const zipInputBtn = document.getElementById("zipInputBtn");
+      const unzipInput = document.getElementById("unzipInput");
+      const unzipInputBtn = document.getElementById("unzipInputBtn");
+
+      const { init, compress } = zstd;
+
+      zipInputBtn.addEventListener("click", async () => {
+        // 自己实现
+        // const files = zipInput.files;
+        // const zipFile = await zip(files);
+        // const url = URL.createObjectURL(zipFile);
+        // const a = document.createElement("a");
+        // a.href = url;
+        // a.download = "zip-slim.zip";
+        // a.click();
+
+        // fflate实现
+        const files = Array.from(zipInput.files);
+        const fileEntries = {};
+        for (const file of files) {
+            fileEntries[file.name] = new Uint8Array(await file.arrayBuffer());
+        }
+        fflate.zip(fileEntries, (err, zipped) => {
+            if (err) {
+                throw new Error(err);
+            }
+
+            const blob = new Blob([zipped], { type: "application/zip" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "archive.zip";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // zstd_wasm实现
+        // (async () => {
+        //   await init();
+
+        //   const files = Array.from(zipInput.files);
+        //   for (const file of files) {
+        //     const arrayBuffer = await file.arrayBuffer();
+        //     const inputData = new Uint8Array(arrayBuffer);
+
+        //     // 使用 Zstd 压缩
+        //     const compressed = zstd.compress(inputData, 10);
+        //     const blob = new Blob([compressed], { type: "application/zst" });
+        //     const url = URL.createObjectURL(blob);
+        //     const a = document.createElement("a");
+        //     a.href = url;
+        //     a.download = "archive.zst";
+        //     a.click();
+        //     URL.revokeObjectURL(url);
+        //   }
+        // })();
+      });
+
+      unzipInputBtn.addEventListener("click", async () => {
+        // 自己实现的解压
+        // const zipFile = unzipInput.files[0];
+        // const unzipFiles = await unZip(zipFile);
+        // console.log(unzipFiles.map((file) => file.name));
+
+        // fflate实现
+        const arrayBuffer = await unzipInput.files[0].arrayBuffer();
+        fflate.unzip(new Uint8Array(arrayBuffer), (err, data) => {
+          if (err) {
+            reject(err);
+            throw err;
+          }
+          const files = [];
+          for (const [name, buffer] of Object.entries(data)) {
+            files.push(new File([buffer], name));
+          }
+          console.log(files);
+        });
+
+        // zstd_wasm实现
+
+      });
+    </script>
+  </body>
+</html>

@@ -1,15 +1,19 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "outDir": "./@types",
     "module": "esnext",
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "target": "esnext",
+    "lib": ["es6", "dom"],
+    "sourceMap": false,
+    "declaration": true, // 生成声明文件
+    "declarationMap": false, // 生成声明文件的 source map
     "strict": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "emitDeclarationOnly": true, // 只生成声明文件
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "examples/**/*"],
+  "exclude": ["node_modules", "build"]
 }
