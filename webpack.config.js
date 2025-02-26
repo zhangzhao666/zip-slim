@@ -26,6 +26,7 @@ export default {
           {
             loader: "worker-loader",
             options: {
+              inline: "fallback", // 使用内联 worker
               filename: "[name].js", // 明确指定输出文件名
             },
           },
