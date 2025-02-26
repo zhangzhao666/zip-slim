@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>zip-slim示例</title>
+  </head>
+  <body>
+    <h1>zip-slim示例</h1>
+    <input type="file" id="compress-files" multiple />
+    <button id="compress-button">压缩并下载</button>
+    <div></div>
+    <input type="file" id="decompress-file" accept=".zip" />
+    <button id="decompress-button">解压并列出文件</button>
+    <a href="#" style="display: none;" id="download"></a>
+    <script type="importmap">
+      {
+        "imports": {
+          "zip-slim": "./zip-slim.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import { zip, unZip, zipWithWorker, unZipWithWorker } from "zip-slim";
+
+      const compressFilesInput = document.getElementById("compress-files");
+      const compressButton = document.getElementById("compress-button");
+      const decompressFileInput = document.getElementById("decompress-file");
+      const decompressButton = document.getElementById("decompress-button");
+      const download = document.getElementById("download");
+
+      let selectedFilesForCompression;
+      compressFilesInput.addEventListener("change", function () {
+        selectedFilesForCompression = this.files;
+      });
+      compressButton.addEventListener("click", function () {
+        if (!selectedFilesForCompression || selectedFilesForCompression.length === 0) {
+          alert("请选择要压缩的文件。");
+          return;
+        }
+        console.time("compress");
+        const fileArr = Array.from(selectedFilesForCompression);
+        zipWithWorker(fileArr).then((file) => {
+          console.timeEnd("compress");
+          const blob = new Blob([file], { type: "application/zip" });
+          download.href = URL.createObjectURL(blob);
+          download.download = "compressed.zip";
+          download.click();
+        });
+      });
+
+      let selectedFileForDecompression;
+      decompressFileInput.addEventListener("change", function () {
+        selectedFileForDecompression = this.files[0];
+      });
+      decompressButton.addEventListener("click", function () {
+        if (!selectedFileForDecompression) {
+          alert("请选择要解压的文件。");
+          return;
+        }
+        console.time("decompress");
+        unZipWithWorker(selectedFileForDecompression).then((files) => {
+          console.timeEnd("decompress");
+          alert(`解压成功，共解压出 ${files.length} 个文件。`);
+          console.log(files);
+        });
+      });
+    </script>
+  </body>
+</html>
