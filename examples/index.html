@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zip-slim 压缩解压示例</title>
+    <title>zip-slim示例</title>
   </head>
   <body>
-    <input type="file" multiple id="zipInput" />
-    <button id="zipInputBtn">压缩</button>
+    <h1>zip-slim示例</h1>
+    <input type="file" id="compress-files" multiple />
+    <button id="compress-button">压缩并下载</button>
     <div></div>
-    <input type="file" id="unzipInput" />
-    <button id="unzipInputBtn">解压</button>
+    <input type="file" id="decompress-file" accept=".zip" />
+    <button id="decompress-button">解压并列出文件</button>
+    <a href="#" style="display: none;" id="download"></a>
     <script type="importmap">
       {
         "imports": {
@@ -18,91 +19,50 @@
         }
       }
     </script>
-
     <script type="module">
-      import { zip, unZip, zstd, fflate } from "zip-slim";
+      import { zip, unZip, zipWithWorker, unZipWithWorker } from "zip-slim";
 
-      const zipInput = document.getElementById("zipInput");
-      const zipInputBtn = document.getElementById("zipInputBtn");
-      const unzipInput = document.getElementById("unzipInput");
-      const unzipInputBtn = document.getElementById("unzipInputBtn");
+      const compressFilesInput = document.getElementById("compress-files");
+      const compressButton = document.getElementById("compress-button");
+      const decompressFileInput = document.getElementById("decompress-file");
+      const decompressButton = document.getElementById("decompress-button");
+      const download = document.getElementById("download");
 
-      const { init, compress } = zstd;
-
-      zipInputBtn.addEventListener("click", async () => {
-        // 自己实现
-        // const files = zipInput.files;
-        // const zipFile = await zip(files);
-        // const url = URL.createObjectURL(zipFile);
-        // const a = document.createElement("a");
-        // a.href = url;
-        // a.download = "zip-slim.zip";
-        // a.click();
-
-        // fflate实现
-        const files = Array.from(zipInput.files);
-        const fileEntries = {};
-        for (const file of files) {
-            fileEntries[file.name] = new Uint8Array(await file.arrayBuffer());
+      let selectedFilesForCompression;
+      compressFilesInput.addEventListener("change", function () {
+        selectedFilesForCompression = this.files;
+      });
+      compressButton.addEventListener("click", function () {
+        if (!selectedFilesForCompression || selectedFilesForCompression.length === 0) {
+          alert("请选择要压缩的文件。");
+          return;
         }
-        fflate.zip(fileEntries, (err, zipped) => {
-            if (err) {
-                throw new Error(err);
-            }
-
-            const blob = new Blob([zipped], { type: "application/zip" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "archive.zip";
-            a.click();
-            URL.revokeObjectURL(url);
+        console.time("compress");
+        const fileArr = Array.from(selectedFilesForCompression);
+        zipWithWorker(fileArr).then((file) => {
+          console.timeEnd("compress");
+          const blob = new Blob([file], { type: "application/zip" });
+          download.href = URL.createObjectURL(blob);
+          download.download = "compressed.zip";
+          download.click();
         });
-
-        // zstd_wasm实现
-        // (async () => {
-        //   await init();
-
-        //   const files = Array.from(zipInput.files);
-        //   for (const file of files) {
-        //     const arrayBuffer = await file.arrayBuffer();
-        //     const inputData = new Uint8Array(arrayBuffer);
-
-        //     // 使用 Zstd 压缩
-        //     const compressed = zstd.compress(inputData, 10);
-        //     const blob = new Blob([compressed], { type: "application/zst" });
-        //     const url = URL.createObjectURL(blob);
-        //     const a = document.createElement("a");
-        //     a.href = url;
-        //     a.download = "archive.zst";
-        //     a.click();
-        //     URL.revokeObjectURL(url);
-        //   }
-        // })();
       });
 
-      unzipInputBtn.addEventListener("click", async () => {
-        // 自己实现的解压
-        // const zipFile = unzipInput.files[0];
-        // const unzipFiles = await unZip(zipFile);
-        // console.log(unzipFiles.map((file) => file.name));
-
-        // fflate实现
-        const arrayBuffer = await unzipInput.files[0].arrayBuffer();
-        fflate.unzip(new Uint8Array(arrayBuffer), (err, data) => {
-          if (err) {
-            reject(err);
-            throw err;
-          }
-          const files = [];
-          for (const [name, buffer] of Object.entries(data)) {
-            files.push(new File([buffer], name));
-          }
+      let selectedFileForDecompression;
+      decompressFileInput.addEventListener("change", function () {
+        selectedFileForDecompression = this.files[0];
+      });
+      decompressButton.addEventListener("click", function () {
+        if (!selectedFileForDecompression) {
+          alert("请选择要解压的文件。");
+          return;
+        }
+        console.time("decompress");
+        unZipWithWorker(selectedFileForDecompression).then((files) => {
+          console.timeEnd("decompress");
+          alert(`解压成功，共解压出 ${files.length} 个文件。`);
           console.log(files);
         });
-
-        // zstd_wasm实现
-
       });
     </script>
   </body>

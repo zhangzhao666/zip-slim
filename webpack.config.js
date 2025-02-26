@@ -1,40 +1,43 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { CleanWebpackPlugin } from 'clean-webpack-plugin';
-import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
-import TerserPlugin from 'terser-webpack-plugin';
+import path from "path";
+import { fileURLToPath } from "url";
+import { CleanWebpackPlugin } from "clean-webpack-plugin";
+import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
+import TerserPlugin from "terser-webpack-plugin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  mode: process.env.NODE_ENV || 'development', // 或 'production'
+  mode: process.env.NODE_ENV || "development", // 或 'production'
   entry: {
-    'zip-slim': './src/index.ts', // 主应用入口
+    "zip-slim": "./src/main.ts", // 主应用入口
   },
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
-        use: [
-          {
-            loader: 'ts-loader',
-            options: {
-              configFile: 'tsconfig.json',
-              transpileOnly: true, // 只进行转译，不进行类型检查，类型检查交给 ForkTsCheckerWebpackPlugin
-            },
-          },
-        ],
+        test: /\.ts$/,
+        use: "ts-loader",
         exclude: /node_modules/,
       },
       {
-        test: /\.wasm$/,
-        type: 'asset/resource',
+        test: /\.worker\.(js|ts)$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: "worker-loader",
+            options: {
+              filename: "[name].js", // 明确指定输出文件名
+            },
+          },
+          {
+            loader: "ts-loader",
+          },
+        ],
       },
     ],
   },
   resolve: {
-    extensions: ['.tsx', '.ts', '.js', '.wasm'],
+    extensions: [".ts", ".js"],
   },
   optimization: {
     minimize: true,
@@ -53,12 +56,13 @@ export default {
     ],
   },
   output: {
-    filename: '[name].js', // 根据入口名称生成文件名
-    path: path.resolve(__dirname, 'build'),
+    filename: "[name].js",
+    path: path.resolve(__dirname, "build"),
     library: {
-      type: 'module',
+      type: "module",
     },
-    assetModuleFilename: '[name][ext]', // 保持生成的 wasm 文件名不变
+    assetModuleFilename: "[name][ext]",
+    module: true, // 确保生成的模块格式与 HMR 配合使用
   },
   experiments: {
     outputModule: true,
@@ -69,14 +73,17 @@ export default {
   ],
   devServer: {
     static: {
-      directory: path.join(__dirname, 'examples'),
+      directory: path.join(__dirname, "examples"),
     },
-    compress: true,
+    client: {
+      overlay: false, // 如果想要禁用错误覆盖，可以关闭
+    },
+    // compress: true,
     // port: 9000,
     open: true,
-    // hot: true, // 启用 HMR
+    hot: false,
     historyApiFallback: {
-      index: '/index.html', // 指定 index.html 文件的位置
+      index: "/index.html", // 指定 index.html 文件的位置
     },
   },
 };

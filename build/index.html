@@ -2,10 +2,10 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <title>zip-lib示例</title>
+    <title>zip-slim示例</title>
   </head>
   <body>
-    <h1>zip-lib示例</h1>
+    <h1>zip-slim示例</h1>
     <input type="file" id="compress-files" multiple />
     <button id="compress-button">压缩并下载</button>
     <div></div>
@@ -15,12 +15,12 @@
     <script type="importmap">
       {
         "imports": {
-          "zip-lib": "./dist/index.esm.js"
+          "zip-slim": "./zip-slim.js"
         }
       }
     </script>
     <script type="module">
-      import { zip, unZip } from "zip-lib";
+      import { zip, unZip, zipWithWorker, unZipWithWorker } from "zip-slim";
 
       const compressFilesInput = document.getElementById("compress-files");
       const compressButton = document.getElementById("compress-button");
@@ -37,8 +37,10 @@
           alert("请选择要压缩的文件。");
           return;
         }
+        console.time("compress");
         const fileArr = Array.from(selectedFilesForCompression);
-        zip(fileArr).then((file) => {
+        zipWithWorker(fileArr).then((file) => {
+          console.timeEnd("compress");
           const blob = new Blob([file], { type: "application/zip" });
           download.href = URL.createObjectURL(blob);
           download.download = "compressed.zip";
@@ -55,7 +57,9 @@
           alert("请选择要解压的文件。");
           return;
         }
-        unZip(selectedFileForDecompression).then((files) => {
+        console.time("decompress");
+        unZipWithWorker(selectedFileForDecompression).then((files) => {
+          console.timeEnd("decompress");
           alert(`解压成功，共解压出 ${files.length} 个文件。`);
           console.log(files);
         });

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZIP with fflate and Web Worker</title>
+</head>
+<body>
+    <h3>压缩文件</h3>
+    <input type="file" id="compressInput" multiple>
+    <button onclick="compressFiles()">压缩为 ZIP</button>
+    
+    <h3>解压 ZIP 文件</h3>
+    <input type="file" id="decompressInput" accept=".zip">
+    <button onclick="decompressFile()">解压 ZIP</button>
+
+    <script>
+        const worker = new Worker('worker.js');
+
+        // 压缩文件
+        function compressFiles() {
+            console.time('compress');
+            const input = document.getElementById('compressInput');
+            const files = input.files;
+            if (!files.length) return alert('请先选择文件');
+
+            const fileData = {};
+            const promises = [];
+            
+            for (const file of files) {
+                const reader = new FileReader();
+                promises.push(new Promise((resolve) => {
+                    reader.onload = () => {
+                        fileData[file.name] = new Uint8Array(reader.result);
+                        resolve();
+                    };
+                    reader.readAsArrayBuffer(file);
+                }));
+            }
+
+            Promise.all(promises).then(() => {
+                worker.postMessage({ action: 'compress', files: fileData });
+            });
+        }
+
+        // 解压文件
+        function decompressFile() {
+            console.time('decompress');
+            const input = document.getElementById('decompressInput');
+            const file = input.files[0];
+            if (!file) return alert('请先选择 ZIP 文件');
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                worker.postMessage({
+                    action: 'decompress',
+                    data: new Uint8Array(reader.result)
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 处理 Worker 返回的结果
+        worker.onmessage = (e) => {
+            const { action, result } = e.data;
+
+            if (action === 'compressed') {
+                const blob = new Blob([result], { type: 'application/zip' });
+                console.timeEnd('compress');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'compressed.zip';
+                a.click();
+            } else if (action === 'decompressed') {
+                const files = [];
+                for (const [filename, data] of Object.entries(result)) {
+                    const file = new File([data], filename);
+                    files.push(file);
+                }
+                console.timeEnd('decompress');
+                console.log(files);
+            }
+        };
+    </script>
+</body>
+</html>
