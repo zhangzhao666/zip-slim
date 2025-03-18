@@ -1,20 +1,27 @@
 import { crc32 } from "./crc32";
-import { compressSingleFile, decompressZip, mergeZipFiles } from "./zipUtils";
+import {
+  compressSingleFile,
+  decompressZip,
+  mergeZipFiles,
+  runTasks,
+} from "./zipUtils";
 // @ts-ignore
 import SingleFIleZipWorker from "./workers/singleFileZip.worker";
 // @ts-ignore
 import unzipWorker from "./workers/unzip.worker";
 
+interface FileInfo {
+  localHeader: Uint8Array;
+  compressedData: Uint8Array;
+  uncompressedSize: number;
+  compressedSize: number;
+  crc: number;
+  method: number;
+}
+
 // 主线程压缩（不使用 Worker）
 async function zip(files: File[], compressWhenPossible = true): Promise<File> {
-  const fileInfos: {
-    localHeader: Uint8Array;
-    compressedData: Uint8Array;
-    uncompressedSize: number;
-    compressedSize: number;
-    crc: number;
-    method: number;
-  }[] = [];
+  const fileInfos: FileInfo[] = [];
   for (const file of files) {
     const fileData = new Uint8Array(await file.arrayBuffer());
     const info = await compressSingleFile(
@@ -43,29 +50,19 @@ async function unZip(zipFile: File): Promise<File[]> {
 // 使用 Worker 压缩
 async function zipWithWorker(
   files: File[],
-  compressWhenPossible = true
+  compressWhenPossible = true,
+  maxConcurrency: number = 200
 ): Promise<File> {
-  const fileInfos: {
-    localHeader: Uint8Array;
-    compressedData: Uint8Array;
-    uncompressedSize: number;
-    compressedSize: number;
-    crc: number;
-    method: number;
-  }[] = [];
-
   const compressionPromises = files.map(
-    (file) =>
-      new Promise<void>((resolve, reject) => {
+    (file) => () =>
+      new Promise<FileInfo>((resolve, reject) => {
         const worker: Worker = new SingleFIleZipWorker();
-        console.log("zipWithWorker");
         worker.onmessage = (e) => {
-          console.log("zipWithWorker onmessage");
           if (e.data.error) {
             reject(new Error(e.data.error));
           } else {
             const fullData = new Uint8Array(e.data.result);
-            fileInfos.push({
+            const fileInfo = {
               localHeader: fullData.subarray(
                 0,
                 30 + fullData[26] + (fullData[27] << 8)
@@ -77,13 +74,13 @@ async function zipWithWorker(
               compressedSize: e.data.compressedSize,
               crc: e.data.crc,
               method: e.data.method,
-            });
-            resolve();
+            };
+
+            resolve(fileInfo);
           }
           worker.terminate();
         };
         worker.onerror = (error) => {
-          console.log("zipWithWorker onerror");
           reject(error);
           worker.terminate();
         };
@@ -96,7 +93,7 @@ async function zipWithWorker(
       })
   );
   console.time("zipWithWorker");
-  await Promise.all(compressionPromises);
+  const fileInfos = await runTasks<FileInfo>(compressionPromises, maxConcurrency);
   console.timeEnd("zipWithWorker");
 
   // 合并生成 ZIP 文件

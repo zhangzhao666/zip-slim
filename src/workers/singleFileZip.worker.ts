@@ -1,4 +1,4 @@
-import { compressSingleFile } from '../zipUtils copy';
+import { compressSingleFile } from '../zipUtils';
 
 self.onmessage = async (e) => {
   const { fileData, fileName, compressWhenPossible } = e.data;
