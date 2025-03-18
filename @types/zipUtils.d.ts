@@ -19,3 +19,5 @@ export declare function mergeZipFiles(fileInfos: {
     crc: number;
     method: number;
 }[]): File;
+export declare function runTasks<T>(taskFns: Array<() => Promise<T>>, // 任务函数数组
+maxConcurrency: number): Promise<T[]>;

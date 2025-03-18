@@ -312,3 +312,52 @@ export function mergeZipFiles(
     lastModified: Date.now(),
   });
 }
+
+export async function runTasks<T>(
+  taskFns: Array<() => Promise<T>>, // 任务函数数组
+  maxConcurrency: number // 最大并行执行数量
+): Promise<T[]> {
+  // 输入验证
+  if (!Array.isArray(taskFns) || taskFns.length === 0) {
+    return Promise.resolve([]);
+  }
+  if (maxConcurrency < 1) {
+    throw new Error('maxConcurrency must be at least 1');
+  }
+
+  const results: T[] = new Array(taskFns.length);
+  const executing = new Set<Promise<any>>(); // 跟踪正在执行的任务
+  let index = 0; // 当前任务索引
+
+  // 执行单个任务的辅助函数
+  const executeTask = async (): Promise<void> => {
+    while (index < taskFns.length) {
+      const currentIndex = index++;
+      const task = taskFns[currentIndex];
+      
+      const promise = task();
+      executing.add(promise);
+      try {
+        const result = await promise;
+        results[currentIndex] = result;
+      } catch (error) {
+        results[currentIndex] = await Promise.reject(error);
+      } finally {
+        executing.delete(promise);
+      }
+      
+      // 如果还有任务且当前并发数小于最大值，继续执行
+      if (index < taskFns.length && executing.size < maxConcurrency) {
+        await executeTask();
+      }
+    }
+  };
+
+  // 启动初始并发任务
+  const initialTasks = Math.min(maxConcurrency, taskFns.length);
+  const workers = Array(initialTasks).fill(null).map(() => executeTask());
+
+  // 等待所有任务完成
+  await Promise.all(workers);
+  return results;
+}
